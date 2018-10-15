@@ -15,12 +15,12 @@ elif (sys.argv[1] == 'chisel'):
 	os.system('cp ./src/main/scala/unified_cache.v ./pumpkin/rtl/unified_cache/unified_cache.v')
 	os.system('cp ./true_unified_cache.v ./pumpkin/rtl/unified_cache/true_unified_cache.v')
 	os.chdir('./pumpkin')
-	os.system('./pumpkin.pl -unit unified_cache')
+	os.system('perl ./pumpkin.pl -unit unified_cache')
 elif (sys.argv[1] == 'verilog'):
 	os.system('rm ./pumpkin/rtl/unified_cache/true_unified_cache.v')
 	os.system('cp -r ./verilog_src/* ./pumpkin/rtl/')
 	os.chdir('./pumpkin')
-	os.system('./pumpkin.pl -unit unified_cache')
+	os.system('perl ./pumpkin.pl -unit unified_cache')
 
 else:
 	print('try \'python launch.py chisel\' to generate the chisel code and run synthesis')
