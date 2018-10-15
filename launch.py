@@ -7,7 +7,7 @@ if len(sys.argv) < 2:
 	print('try \'python launch.py chisel\' to generate the chisel code and run synthesis')
 	print('try \'python launch.py verilog\' to copy original verilog code and run synthesis')
 elif (sys.argv[1] == 'chisel'):
-	# os.system('sbt \'runMain cacheDriver\'')
+	os.system('sbt \'runMain cacheDriver\'')
 	os.system('rm ./pumpkin/rtl/common/basic_storage/*.v')
 	os.system('rm ./pumpkin/rtl/common/advanced_logic/priority_arbiter.v')
 	os.system('rm ./pumpkin/rtl/unified_cache/unified_cache_bank.v')
