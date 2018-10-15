@@ -1,0 +1,1 @@
+`define IS_BR_INST(name) name[28:26] == 3'b101

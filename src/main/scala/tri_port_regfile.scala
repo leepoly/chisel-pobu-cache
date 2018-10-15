@@ -34,6 +34,8 @@ class tri_port_regfile(
 		} .otherwise {
 			when (io.write_en_in && io.write_entry_addr_decoded_in(gen)) {
 				entry_reg(gen) := io.write_entry_in
+			} .otherwise {
+				entry_reg(gen) := entry_reg(gen)
 			}
 			when (io.cam_en_in && entry_reg(gen) === io.cam_entry_in) {
 				//io.cam_result_decoded_out(gen) := Mux(entry_reg(gen) === io.cam_entry_in, 1.U, 0.U)
