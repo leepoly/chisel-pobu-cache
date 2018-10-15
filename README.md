@@ -5,8 +5,8 @@
 #用法
 
 1. 直接综合verilog原版cache
-python launch.py verilog
+`python launch.py verilog`
 
 2. 生成chisel版本的cache并综合
-python launch.py chisel
+`python launch.py chisel`
 
