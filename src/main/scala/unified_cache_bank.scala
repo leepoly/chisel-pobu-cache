@@ -45,9 +45,11 @@ class unified_cache_bank(
   if (MODE == "OFF") {
 
 
-    val intra_bank_arbiter = Module(new priority_arbiter(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_INPUT_PORT, 2))
+    val intra_bank_arbiter = Module(new priority_arbiter_chisel(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_INPUT_PORT, 2))
 
   //intra_bank_arbiter.io.reset_in := reset.toBool
+  //intra_bank_arbiter.io.clk_in := clock
+  
 	intra_bank_arbiter.io.request_flatted_in := io.input_request_flatted_in
 	intra_bank_arbiter.io.request_valid_flatted_in := io.input_request_valid_flatted_in
 	intra_bank_arbiter.io.request_critical_flatted_in := io.input_request_critical_flatted_in
@@ -56,9 +58,6 @@ class unified_cache_bank(
 	io.miss_request_valid_out := intra_bank_arbiter.io.request_valid_out 
 	intra_bank_arbiter.io.issue_ack_in := io.miss_request_ack_in
   	
-  	//val intra_bank_arbiter = new Module(priority_arbiter) //We should use blackbox here
-  	//And the port configuration
-
   	io.miss_request_critical_out := 0.U(1.W)
   	io.return_request_out := io.fetched_request_in
   	io.return_request_valid_out := io.fetched_request_valid_in
