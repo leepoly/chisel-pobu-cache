@@ -1,22 +1,32 @@
-#½éÉÜ
+### ä»‹ç»
 
-ÕâÊÇÓÃChisel·­ÒëµÄÆÆ²¼Ê¦ĞÖµÄunified_cache´úÂë£¬ÓÃÓÚ¶Ô±ÈverilogºÍchisel¡£
+è¿™æ˜¯ç”¨Chiselç¿»è¯‘çš„ç ´å¸ƒå¸ˆå…„çš„unified_cacheä»£ç ï¼Œç”¨äºå¯¹æ¯”verilogå’Œchiselã€‚
 
-#ÓÃ·¨
+### prerequisite
+- python
+- perl(>=5.24)
+- vivado 2017 or later
+- sbt
 
-1. ÅäÖÃgit
+### ç”¨æ³•
+
+1. é…ç½®git
 
 `git submodule init`
+
 `git submodule update --remote`
 
-2. ĞŞ¸Äpumpkin½Å±¾
+2. ä¿®æ”¹pumpkinè„šæœ¬
+æ³¨ï¼šè„šæœ¬ç”¨äºä¿®æ”¹é…ç½®æ–‡ä»¶ç¬¦åˆictæœåŠ¡å™¨çš„é…ç½®ï¼›å¦‚æœä¸åœ¨ictç½‘ç»œä¸­ï¼Œè¯·å¿½ç•¥è„šæœ¬ä¿®æ”¹ï¼Œæ”¹ä¸ºè‡ªå·±é…ç½®perlå’Œvivadoç‰ˆæœ¬åŠè·¯å¾„
+éœ€è¦ä¿®æ”¹çš„åœ°æ–¹æœ‰`/pumpkin/pumpkin.pl` `/pumpkin/verify/assist_scripts/vivado_wrapper.tcl` `/pumpkin/verify/assist_scripts/auto_constr.pl`
+
 `python launch.py init`
 
-3. Ö±½Ó×ÛºÏverilogÔ­°æcache
+3. ç›´æ¥ç»¼åˆverilogåŸç‰ˆcache
 
 `python launch.py verilog`
 
-4. »òÉú³Échisel°æ±¾µÄcache²¢×ÛºÏ
+4. æˆ–ç”Ÿæˆchiselç‰ˆæœ¬çš„cacheå¹¶ç»¼åˆ
 
 `python launch.py chisel`
 
