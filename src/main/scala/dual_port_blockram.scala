@@ -72,17 +72,17 @@ class dual_port_blockram(
     	io.port_A_read_entry_out := port_A_read_entry_out_unpack.asUInt
   	}
 
-  	//when (io.port_B_access_en_in) {
-		// val port_B_write_en_in_vec = io.port_B_write_en_in.toBools
-		// val port_B_write_entry_unpack = Wire(Vec(WRITE_MASK_LEN, UInt(8.W)))
-	 //    for (i <- 0 until WRITE_MASK_LEN) {
-	 //      port_B_write_entry_unpack(i) := io.port_B_write_entry_in(8 * i + 7, 8 * i)
-	 //    }
-		// blockram.write(io.port_B_access_set_addr_in, port_B_write_entry_unpack, port_B_write_en_in_vec)
-  // 		val port_B_read_entry_out_unpack = VecInit(Seq.fill(WRITE_MASK_LEN)(0.U(8.W)))
-  // 		port_B_read_entry_out_unpack := blockram.read(io.port_B_access_set_addr_in)
-  //   	io.port_B_read_entry_out := port_B_read_entry_out_unpack.asUInt
-  	//}
+  	when (io.port_B_access_en_in) {
+		val port_B_write_en_in_vec = io.port_B_write_en_in.toBools
+		val port_B_write_entry_unpack = Wire(Vec(WRITE_MASK_LEN, UInt(8.W)))
+	    for (i <- 0 until WRITE_MASK_LEN) {
+	      port_B_write_entry_unpack(i) := io.port_B_write_entry_in(8 * i + 7, 8 * i)
+	    }
+		blockram.write(io.port_B_access_set_addr_in, port_B_write_entry_unpack, port_B_write_en_in_vec)
+  		val port_B_read_entry_out_unpack = VecInit(Seq.fill(WRITE_MASK_LEN)(0.U(8.W)))
+  		port_B_read_entry_out_unpack := blockram.read(io.port_B_access_set_addr_in)
+    	io.port_B_read_entry_out := port_B_read_entry_out_unpack.asUInt
+  	}
   }
 
 }
