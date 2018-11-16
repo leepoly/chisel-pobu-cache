@@ -4,33 +4,11 @@ import chisel3.experimental._
 
 //To execute, type in shell "sbt 'runMain pDriver'"
 
-/*class fifo_queue(
-  val QUEUE_SIZE: Int = 16,
-  val QUEUE_PTR_WIDTH_IN_BITS: Int = 4,
-  val SINGLE_ENTRY_WIDTH_IN_BITS: Int = 32,
-  val STORAGE_TYPE: String = "LUTRAM"
-  ) extends BlackBox(Map("QUEUE_SIZE" -> QUEUE_SIZE,
-                         "QUEUE_PTR_WIDTH_IN_BITS" -> QUEUE_PTR_WIDTH_IN_BITS,
-                         "SINGLE_ENTRY_WIDTH_IN_BITS" -> SINGLE_ENTRY_WIDTH_IN_BITS/*,
-                         "STORAGE_TYPE" -> STORAGE_TYPE*/))  {
-      val io = IO(new Bundle {
-        val clk_in = Input(Clock())
-        val reset_in = Input(Bool())
-        val is_empty_out = Output(UInt(1.W))
-        val is_full_out = Output(UInt(1.W))
-        val request_in = Input(UInt(SINGLE_ENTRY_WIDTH_IN_BITS.W))
-        val request_valid_in = Input(UInt(1.W))
-        val issue_ack_out = Output(UInt(1.W))
-        val request_out = Output(UInt(SINGLE_ENTRY_WIDTH_IN_BITS.W))
-        val request_valid_out = Output(UInt(1.W))
-        val issue_ack_in = Input(UInt(1.W))
-     })
-  }*/
-
-class priority_arbiter_chisel(
+class priority_arbiter(
 	val SINGLE_REQUEST_WIDTH_IN_BITS: Int = 64,
  	val NUM_REQUEST: Int = 3,
- 	val INPUT_QUEUE_SIZE: Int = 2
+ 	val INPUT_QUEUE_SIZE: Int = 4,
+ 	val BYTE_PADDING_WIDTH: Int = 8
 	) extends Module {
 	val io = IO(new Bundle {
 		val request_flatted_in = Input(UInt((SINGLE_REQUEST_WIDTH_IN_BITS * NUM_REQUEST).W))
@@ -53,23 +31,28 @@ class priority_arbiter_chisel(
 	val request_packed_from_request_queue = Wire(Vec(NUM_REQUEST, UInt(SINGLE_REQUEST_WIDTH_IN_BITS.W)))
 	val request_valid_flatted_from_request_queue = Wire(Vec(NUM_REQUEST, UInt(1.W)))
 	val request_queue_full = Wire(Vec(NUM_REQUEST, UInt(1.W)))
-	val request_critical_flatted_from_request_queue = Wire(Vec(NUM_REQUEST, UInt(1.W)))
+	val request_critical_flatted_from_request_queue = Wire(Vec(NUM_REQUEST, UInt(BYTE_PADDING_WIDTH.W)))
 	
 	for (request_index <- 0 until NUM_REQUEST) {
 		request_packed_in(request_index) := io.request_flatted_in((request_index + 1) * SINGLE_REQUEST_WIDTH_IN_BITS - 1, request_index * SINGLE_REQUEST_WIDTH_IN_BITS)
 
-		val request_queue = Module(new fifo_queue_chisel(QUEUE_SIZE = INPUT_QUEUE_SIZE, QUEUE_PTR_WIDTH_IN_BITS = log2Up(INPUT_QUEUE_SIZE), SINGLE_ENTRY_WIDTH_IN_BITS = SINGLE_REQUEST_WIDTH_IN_BITS + 1))
-		//request_queue.io.clk_in := clock
-		//request_queue.io.reset_in := reset.toBool
-
+		val request_queue = Module(new fifo_queue(QUEUE_SIZE = INPUT_QUEUE_SIZE, 
+												QUEUE_PTR_WIDTH_IN_BITS =log2Up(INPUT_QUEUE_SIZE), 
+												SINGLE_ENTRY_WIDTH_IN_BITS = SINGLE_REQUEST_WIDTH_IN_BITS + BYTE_PADDING_WIDTH, 
+												WRITE_MASK_LEN = (SINGLE_REQUEST_WIDTH_IN_BITS + BYTE_PADDING_WIDTH) / 8
+												))
 		request_queue_full(request_index) := request_queue.io.is_full_out
-		request_queue.io.request_in := Cat(io.request_critical_flatted_in(request_index), request_packed_in(request_index))
+		when (io.request_critical_flatted_in(request_index)) {
+			request_queue.io.request_in := Cat((1.U<<BYTE_PADDING_WIDTH) - 1.U, request_packed_in(request_index))
+		} .otherwise {
+			request_queue.io.request_in := Cat(0.U(BYTE_PADDING_WIDTH.W), request_packed_in(request_index))
+		}
+		//request_queue.io.request_in := Cat(io.request_critical_flatted_in(request_index), request_packed_in(request_index))
 		request_queue.io.request_valid_in := io.request_valid_flatted_in(request_index)
 		issue_ack_out_vec(request_index) := request_queue.io.issue_ack_out
 
 		request_critical_flatted_from_request_queue(request_index) := request_queue.io.request_out(SINGLE_REQUEST_WIDTH_IN_BITS)
 		request_packed_from_request_queue(request_index) := request_queue.io.request_out(SINGLE_REQUEST_WIDTH_IN_BITS - 1, 0)
-		//Cat(request_critical_flatted_from_request_queue(request_index), request_packed_from_request_queue(request_index)) := request_queue.io.request_out
 		request_valid_flatted_from_request_queue(request_index) := request_queue.io.request_valid_out
 		request_queue.io.issue_ack_in := arbiter_ack_flatted_to_request_queue(request_index)
 	}
@@ -81,16 +64,15 @@ class priority_arbiter_chisel(
 	// shift the request valid/critical flatted wire
 	val request_valid_flatted_shift_left = Wire(UInt(NUM_REQUEST.W))
 	val request_critical_flatted_shift_left = Wire(UInt(NUM_REQUEST.W))
-	request_valid_flatted_shift_left := (request_valid_flatted_from_request_queue.asUInt >> (last_send_index + 1.U)) | 
+	request_valid_flatted_shift_left := (request_valid_flatted_from_request_queue.asUInt >> last_send_index + 1.U) | 
 										(request_valid_flatted_from_request_queue.asUInt << (NUM_REQUEST.U - last_send_index - 1.U))
-	request_critical_flatted_shift_left := (request_critical_final >> (last_send_index + 1.U)) | 
+	request_critical_flatted_shift_left := (request_critical_final >> last_send_index + 1.U) | 
 										   (request_critical_final << (NUM_REQUEST.U - last_send_index - 1.U))
 
 	// find the first valid requests
-	val valid_sel = WireInit(0.U(NUM_REQUEST_LOG2.W))
+	val valid_sel = RegInit(0.U(NUM_REQUEST_LOG2.W))
 	valid_sel := 0.U(NUM_REQUEST_LOG2.W)
 	for (valid_find_index <- NUM_REQUEST - 1 to 0 by -1) {
-		//var valid_find_index = 2
 		when (request_valid_flatted_shift_left(valid_find_index)) {
 			when (last_send_index + valid_find_index.U + 1.U >= NUM_REQUEST.U) {
 				valid_sel := last_send_index + valid_find_index.U + 1.U - NUM_REQUEST.U
@@ -98,13 +80,11 @@ class priority_arbiter_chisel(
 				valid_sel := last_send_index + valid_find_index.U + 1.U
 			}
 		}
-		
 	}
 
-	val critical_sel = WireInit(0.U(NUM_REQUEST_LOG2.W))
+	val critical_sel = RegInit(0.U(NUM_REQUEST_LOG2.W))
 	critical_sel := 0.U(NUM_REQUEST_LOG2.W)
 	for (critical_find_index <- NUM_REQUEST - 1 to 0 by -1) {
-		//var critical_find_index = 2
 		when (request_critical_flatted_shift_left(critical_find_index) && request_valid_flatted_shift_left(critical_find_index)) {
 			when (last_send_index + critical_find_index.U + 1.U >= NUM_REQUEST.U) {
 				critical_sel := last_send_index + critical_find_index.U + 1.U - NUM_REQUEST.U
@@ -112,7 +92,6 @@ class priority_arbiter_chisel(
 				critical_sel := last_send_index + critical_find_index.U + 1.U
 			}
 		}
-		
 	}
 
 	// fill the valid/critical mask
@@ -148,12 +127,12 @@ class priority_arbiter_chisel(
 		last_send_index := 0.U(NUM_REQUEST_LOG2.W)
 	} .elsewhen (((io.issue_ack_in & request_valid_out_reg) | (~request_valid_out_reg)).toBool) {
 		when ((request_critical_final(critical_sel) & request_valid_flatted_from_request_queue(critical_sel) & 
-				(((critical_sel =/= last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
+				((!(critical_sel === last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
 			request_out_reg := request_packed_from_request_queue(critical_sel) 
 			request_valid_out_reg := 1.U(1.W)
 			last_send_index := critical_sel
 		} .elsewhen ((request_valid_flatted_from_request_queue(valid_sel) & 
-				(((valid_sel =/= last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
+				((!(valid_sel === last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
 			request_out_reg := request_packed_from_request_queue(valid_sel)
 			request_valid_out_reg := 1.U(1.W)
 			last_send_index := valid_sel
@@ -175,5 +154,5 @@ class priority_arbiter_chisel(
 }
 
 object pDriver extends App {
-  chisel3.Driver.execute(args, () => new priority_arbiter_chisel)
+  chisel3.Driver.execute(args, () => new priority_arbiter)
 }

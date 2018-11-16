@@ -5,8 +5,8 @@ import chisel3.experimental._
 //To open it, execute in shell "sbt 'runMain bDriver'"
 
 //priority_arbiter blackbox has been predefined in unified_cache_bank.scala
-
-/* class unified_cache_bank(
+/*
+class unified_cache_bank(
   val NUM_INPUT_PORT: Int = 2,
   val NUM_SET: Int = 4, 
   val NUM_WAY: Int = 4,
@@ -51,9 +51,9 @@ import chisel3.experimental._
         val return_request_critical_out = Output(UInt(1.W))
         val return_request_ack_in = Input(UInt(1.W))
      })
-  } */
-
-class priority_arbiter(
+  }
+*/
+/*class priority_arbiter(
   val SINGLE_REQUEST_WIDTH_IN_BITS: Int = 64,
   val NUM_REQUEST: Int = 3,
   val INPUT_QUEUE_SIZE: Int = 2
@@ -72,9 +72,9 @@ class priority_arbiter(
         val request_valid_out = Output(UInt(1.W))
         val issue_ack_in = Input(UInt(1.W))
      })
-  }
+  }*/
 
-class fifo_queue(
+/*class fifo_queue(
   val QUEUE_SIZE: Int = 16,
   val QUEUE_PTR_WIDTH_IN_BITS: Int = 4,
   val SINGLE_ENTRY_WIDTH_IN_BITS: Int = 32,
@@ -95,7 +95,7 @@ class fifo_queue(
         val request_valid_out = Output(UInt(1.W))
         val issue_ack_in = Input(UInt(1.W))
      })
-  }
+  }*/
 
 class true_unified_cache(
   val NUM_INPUT_PORT: Int = 2,
@@ -149,20 +149,19 @@ class true_unified_cache(
   val input_packet_critical_to_cache_flatted = Wire(Vec(NUM_INPUT_PORT, UInt(1.W)))
   val cache_to_input_queue_ack_merged = Wire(Vec(NUM_INPUT_PORT, UInt(1.W)))
 
-  //val input_queue_vec = Vec.fill(NUM_INPUT_PORT) {Module(new fifo_queue_chisel(h_UNIFIED_CACHE_INPUT_QUEUE_SIZE, log2Up(h_UNIFIED_CACHE_INPUT_QUEUE_SIZE), UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, "LUTRAM")).io }
+  val input_queue_vec = Vec.fill(NUM_INPUT_PORT) {Module(new fifo_queue(h_UNIFIED_CACHE_INPUT_QUEUE_SIZE, log2Up(h_UNIFIED_CACHE_INPUT_QUEUE_SIZE), UNIFIED_CACHE_PACKET_WIDTH_IN_BITS)).io }
   for (port_index <- 0 until NUM_INPUT_PORT) {
     //input_queue_vec(port_index).clk_in := clock
     //input_queue_vec(port_index).reset_in := reset.toBool
-    val input_queue = Module(new fifo_queue_chisel(QUEUE_SIZE = h_UNIFIED_CACHE_INPUT_QUEUE_SIZE, QUEUE_PTR_WIDTH_IN_BITS = log2Up(h_UNIFIED_CACHE_INPUT_QUEUE_SIZE), SINGLE_ENTRY_WIDTH_IN_BITS = UNIFIED_CACHE_PACKET_WIDTH_IN_BITS))
 
     input_packet_packed(port_index) := io.input_packet_flatted_in((port_index + 1) * UNIFIED_CACHE_PACKET_WIDTH_IN_BITS - 1, port_index * UNIFIED_CACHE_PACKET_WIDTH_IN_BITS)
-    is_input_queue_full_flatted(port_index) := input_queue.io.is_full_out
-    input_queue.io.request_in := input_packet_packed(port_index)
-    input_queue.io.request_valid_in := input_packet_packed(port_index)(h_UNIFIED_CACHE_PACKET_VALID_POS)
-    input_packet_ack_flatted_out_vec(port_index) := input_queue.io.issue_ack_out
-    input_packet_to_cache_packed(port_index) := input_queue.io.request_out
-    input_packet_valid_to_cache_flatted(port_index) := input_queue.io.request_valid_out
-    input_queue.io.issue_ack_in := cache_to_input_queue_ack_merged(port_index)
+    is_input_queue_full_flatted(port_index) := input_queue_vec(port_index).is_full_out
+    input_queue_vec(port_index).request_in := input_packet_packed(port_index)
+    input_queue_vec(port_index).request_valid_in := input_packet_packed(port_index)(h_UNIFIED_CACHE_PACKET_VALID_POS)
+    input_packet_ack_flatted_out_vec(port_index) := input_queue_vec(port_index).issue_ack_out
+    input_packet_to_cache_packed(port_index) := input_queue_vec(port_index).request_out
+    input_packet_valid_to_cache_flatted(port_index) := input_queue_vec(port_index).request_valid_out
+    input_queue_vec(port_index).issue_ack_in := cache_to_input_queue_ack_merged(port_index)
 
 
     input_packet_critical_to_cache_flatted(port_index) := is_input_queue_full_flatted(port_index)
@@ -204,7 +203,9 @@ class true_unified_cache(
     fetched_is_valid_final := io.from_mem_packet_in(h_UNIFIED_CACHE_PACKET_VALID_POS) & fetched_is_right_bank
     
     val cache_bank = Module(new unified_cache_bank(NUM_INPUT_PORT, NUM_SET, NUM_WAY, BLOCK_SIZE_IN_BYTES, bank_index, "OFF", UNIFIED_CACHE_PACKET_WIDTH_IN_BITS))
-    
+    //cache_bank.io.clk_in := clock
+    //cache_bank.io.reset_in := reset.toBool
+
     when (input_is_valid_final.asUInt > 0.U) {
       cache_bank.io.input_request_flatted_in := input_packet_to_cache_flatted.asUInt
     } .otherwise {
@@ -250,7 +251,7 @@ class true_unified_cache(
     cache_to_input_queue_ack_merged(port_index) := cache_to_input_queue_ack_packed(port_index).asUInt.orR
   }
 
-  val to_mem_arbiter = Module(new priority_arbiter_chisel(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_BANK * 2, 2))
+  val to_mem_arbiter = Module(new priority_arbiter(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_BANK * 2, 2))
   //to_mem_arbiter.io.reset_in := reset.toBool
   //to_mem_arbiter.io.clk_in := clock
 
@@ -279,7 +280,7 @@ class true_unified_cache(
                                     return_request_flatted(bank_index)(h_UNIFIED_CACHE_PACKET_VALID_POS);
     }
 
-    val return_arbiter = Module(new priority_arbiter_chisel(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_BANK, 2))
+    val return_arbiter = Module(new priority_arbiter(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_BANK, 2))
     //return_arbiter.io.reset_in := reset.toBool
     //return_arbiter.io.clk_in := clock
 
