@@ -7,7 +7,7 @@ import chisel3.experimental._
 class priority_arbiter(
 	val SINGLE_REQUEST_WIDTH_IN_BITS: Int = 64,
  	val NUM_REQUEST: Int = 3,
- 	val INPUT_QUEUE_SIZE: Int = 4,
+ 	val INPUT_QUEUE_SIZE: Int = 2,
  	val BYTE_PADDING_WIDTH: Int = 8
 	) extends Module {
 	val io = IO(new Bundle {
@@ -43,7 +43,7 @@ class priority_arbiter(
 												))
 		request_queue_full(request_index) := request_queue.io.is_full_out
 		when (io.request_critical_flatted_in(request_index)) {
-			request_queue.io.request_in := Cat((1.U<<BYTE_PADDING_WIDTH) - 1.U, request_packed_in(request_index))
+			request_queue.io.request_in := Cat((1.U<<BYTE_PADDING_WIDTH) - 1.U, io.request_critical_flatted_in(request_index))
 		} .otherwise {
 			request_queue.io.request_in := Cat(0.U(BYTE_PADDING_WIDTH.W), request_packed_in(request_index))
 		}
@@ -51,7 +51,7 @@ class priority_arbiter(
 		request_queue.io.request_valid_in := io.request_valid_flatted_in(request_index)
 		issue_ack_out_vec(request_index) := request_queue.io.issue_ack_out
 
-		request_critical_flatted_from_request_queue(request_index) := request_queue.io.request_out(SINGLE_REQUEST_WIDTH_IN_BITS)
+		request_critical_flatted_from_request_queue(request_index) := request_queue.io.request_out(SINGLE_REQUEST_WIDTH_IN_BITS + BYTE_PADDING_WIDTH - 1, SINGLE_REQUEST_WIDTH_IN_BITS)
 		request_packed_from_request_queue(request_index) := request_queue.io.request_out(SINGLE_REQUEST_WIDTH_IN_BITS - 1, 0)
 		request_valid_flatted_from_request_queue(request_index) := request_queue.io.request_valid_out
 		request_queue.io.issue_ack_in := arbiter_ack_flatted_to_request_queue(request_index)
@@ -70,7 +70,7 @@ class priority_arbiter(
 										   (request_critical_final << (NUM_REQUEST.U - last_send_index - 1.U))
 
 	// find the first valid requests
-	val valid_sel = RegInit(0.U(NUM_REQUEST_LOG2.W))
+	val valid_sel = WireInit(0.U(NUM_REQUEST_LOG2.W))
 	valid_sel := 0.U(NUM_REQUEST_LOG2.W)
 	for (valid_find_index <- NUM_REQUEST - 1 to 0 by -1) {
 		when (request_valid_flatted_shift_left(valid_find_index)) {
@@ -82,7 +82,7 @@ class priority_arbiter(
 		}
 	}
 
-	val critical_sel = RegInit(0.U(NUM_REQUEST_LOG2.W))
+	val critical_sel = WireInit(0.U(NUM_REQUEST_LOG2.W))
 	critical_sel := 0.U(NUM_REQUEST_LOG2.W)
 	for (critical_find_index <- NUM_REQUEST - 1 to 0 by -1) {
 		when (request_critical_flatted_shift_left(critical_find_index) && request_valid_flatted_shift_left(critical_find_index)) {
@@ -126,22 +126,21 @@ class priority_arbiter(
 		request_valid_out_reg := 0.U(1.W)
 		last_send_index := 0.U(NUM_REQUEST_LOG2.W)
 	} .elsewhen (((io.issue_ack_in & request_valid_out_reg) | (~request_valid_out_reg)).toBool) {
-		when ((request_critical_final(critical_sel) & request_valid_flatted_from_request_queue(critical_sel) & 
-				((!(critical_sel === last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
-			request_out_reg := request_packed_from_request_queue(critical_sel) 
-			request_valid_out_reg := 1.U(1.W)
-			last_send_index := critical_sel
-		} .elsewhen ((request_valid_flatted_from_request_queue(valid_sel) & 
-				((!(valid_sel === last_send_index & request_valid_out_reg)) | (~request_valid_out_reg))).toBool) {
-			request_out_reg := request_packed_from_request_queue(valid_sel)
-			request_valid_out_reg := 1.U(1.W)
-			last_send_index := valid_sel
+		when (!request_valid_out_reg.toBool) {
+			when ((request_critical_final(critical_sel) & request_valid_flatted_from_request_queue(critical_sel)).toBool) {
+				request_out_reg := request_packed_from_request_queue(critical_sel) 
+				request_valid_out_reg := 1.U(1.W)
+				last_send_index := critical_sel
+			} .elsewhen (request_valid_flatted_from_request_queue(valid_sel).toBool) {
+				request_out_reg := request_packed_from_request_queue(valid_sel)
+				request_valid_out_reg := 1.U(1.W)
+				last_send_index := valid_sel
+			} 
 		} .otherwise {
 			request_out_reg := 0.U(SINGLE_REQUEST_WIDTH_IN_BITS.W)
 			request_valid_out_reg := 0.U(1.W)
 			last_send_index := last_send_index
 		}
-
 	} .otherwise {
 		request_out_reg := request_out_reg
 		request_valid_out_reg := request_valid_out_reg

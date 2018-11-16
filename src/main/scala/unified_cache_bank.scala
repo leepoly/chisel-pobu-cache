@@ -10,10 +10,10 @@ class unified_cache_bank(
   val NUM_WAY: Int = 4,
   val BLOCK_SIZE_IN_BYTES: Int = 4,
   val BANK_NUM: Int = 0,
-  val MODE: String = "OFF",
-  val UNIFIED_CACHE_PACKET_WIDTH_IN_BITS: Int = 32,
-  val BLOCK_SIZE_IN_BITS: Int = 4*8,
-  val SET_PTR_WIDTH_IN_BITS: Int = 2
+  val MODE: String = "Bypass",
+  val UNIFIED_CACHE_PACKET_WIDTH_IN_BITS: Int = 80,
+  val BLOCK_SIZE_IN_BITS: Int = 4*8, //BLOCK_SIZE_IN_BYTES * 8
+  val SET_PTR_WIDTH_IN_BITS: Int = log2Up(2) + 1 //log2Up(NUM_INPUT_PORT) + 1
   ) extends Module {
   val io = IO(new Bundle {
 
@@ -42,10 +42,12 @@ class unified_cache_bank(
     val return_request_ack_in = Input(UInt(1.W))
   })
 
-  if (MODE == "OFF") {
+  if (MODE == "Bypass") {
 
 
-    val intra_bank_arbiter = Module(new priority_arbiter(UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, NUM_INPUT_PORT, 2))
+    val intra_bank_arbiter = Module(new priority_arbiter(SINGLE_REQUEST_WIDTH_IN_BITS = UNIFIED_CACHE_PACKET_WIDTH_IN_BITS, 
+                                                        NUM_REQUEST = NUM_INPUT_PORT,
+                                                        INPUT_QUEUE_SIZE = 2))
 
   //intra_bank_arbiter.io.reset_in := reset.toBool
 	intra_bank_arbiter.io.request_flatted_in := io.input_request_flatted_in
