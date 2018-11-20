@@ -53,11 +53,9 @@ class dual_port_blockram(
     }
 	blockram.write(io.write_port_access_set_addr_in, write_entry_unpack, write_en_in_seq)
   }
-  when (io.read_port_access_en_in) {
 	val read_entry_out_unpack = VecInit(Seq.fill(WRITE_MASK_LEN)(0.U(8.W)))
-	read_entry_out_unpack := blockram.read(io.read_port_access_set_addr_in)
+	read_entry_out_unpack := blockram.read(io.read_port_access_set_addr_in, io.read_port_access_en_in)
 	io.read_port_data_out := read_entry_out_unpack.asUInt
-  }
 
 }
 
