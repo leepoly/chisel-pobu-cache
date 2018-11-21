@@ -9,7 +9,7 @@ import chisel3.experimental._
 class priority_arbiter(
 	val SINGLE_REQUEST_WIDTH_IN_BITS: Int = 64,
  	val NUM_REQUEST: Int = 3,
- 	val INPUT_QUEUE_SIZE: Int = 2,
+ 	val INPUT_QUEUE_SIZE: Int = 1,
  	val BYTE_PADDING_WIDTH: Int = 8
 	) extends Module {
 	val io = IO(new Bundle {
